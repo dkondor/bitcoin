@@ -1658,6 +1658,11 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
 
     // ********************************************************* Step 11: start node
+    if(gArgs.IsArgSet("-DUMP")) {
+		dumpblocks();
+		return false;
+	}
+    
 
     //// debug print
     LogPrintf("mapBlockIndex.size() = %u\n",   mapBlockIndex.size());

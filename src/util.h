@@ -219,6 +219,14 @@ public:
      * @return command-line argument or default value
      */
     std::string GetArg(const std::string& strArg, const std::string& strDefault);
+    
+    /**
+     * Return string argument as c string or null
+     * caller must free() the returned pointer
+     * @param strArg Argument to get (e.g. "-foo")
+     * @return command-line argument or null
+     */
+    char* GetArg(const std::string& strArg);
 
     /**
      * Return integer argument or default value

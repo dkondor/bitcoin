@@ -17,6 +17,7 @@
 #include "utiltime.h"
 
 #include <stdarg.h>
+#include <string.h>
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread.h>
@@ -439,6 +440,12 @@ std::string ArgsManager::GetArg(const std::string& strArg, const std::string& st
     if (mapArgs.count(strArg))
         return mapArgs[strArg];
     return strDefault;
+}
+
+char* ArgsManager::GetArg(const std::string& strArg) {
+	LOCK(cs_args);
+	if(mapArgs.count(strArg)) return strdup(mapArgs[strArg].c_str());
+	return 0;
 }
 
 int64_t ArgsManager::GetArg(const std::string& strArg, int64_t nDefault)

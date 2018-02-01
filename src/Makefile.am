@@ -219,6 +219,7 @@ libbitcoin_server_a_SOURCES = \
   validation.cpp \
   validationinterface.cpp \
   versionbits.cpp \
+  dump2.cpp \
   $(BITCOIN_CORE_H)
 
 if ENABLE_ZMQ
