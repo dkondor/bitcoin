@@ -10,6 +10,7 @@
 #include <util/translation.h>
 
 #include <stdarg.h>
+#include <string.h>
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread.h>
@@ -509,6 +510,13 @@ std::string ArgsManager::GetArg(const std::string& strArg, const std::string& st
     std::pair<bool,std::string> found_res = ArgsManagerHelper::GetArg(*this, strArg);
     if (found_res.first) return found_res.second;
     return strDefault;
+}
+
+char* ArgsManager::GetArg(const std::string& strArg) const {
+	LOCK(cs_args);
+	auto it = mapArgs.find(strArg);
+	if(it != mapArgs.end()) return strdup(it->second.c_str());
+	return 0;
 }
 
 int64_t ArgsManager::GetArg(const std::string& strArg, int64_t nDefault) const
