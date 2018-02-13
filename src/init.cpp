@@ -1652,7 +1652,12 @@ bool AppInitMain()
     }
 
     // ********************************************************* Step 11: start node
-
+    if(gArgs.IsArgSet("-DUMP")) {
+		dumpblocks();
+		return false;
+	}
+    
+    
     int chain_active_height;
 
     //// debug print

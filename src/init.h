@@ -67,4 +67,9 @@ std::string HelpMessage(HelpMessageMode mode);
 /** Returns licensing information (for -version) */
 std::string LicenseInfo();
 
+
+/** dump all blockchain data in TSV files */
+int dumpblocks();
+
+
 #endif // BITCOIN_INIT_H

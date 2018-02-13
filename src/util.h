@@ -227,6 +227,14 @@ public:
     bool IsArgSet(const std::string& strArg) const;
 
     /**
+     * Return string argument as c string or null
+     * caller must free() the returned pointer
+     * @param strArg Argument to get (e.g. "-foo")
+     * @return command-line argument or null
+     */
+    char* GetArg(const std::string& strArg);
+    
+    /**
      * Return string argument or default value
      *
      * @param strArg Argument to get (e.g. "-foo")
