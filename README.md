@@ -10,7 +10,11 @@ files specified as further argument, after which the program will exit.
 
 All other functionality is unchanged, should be compatible with an unmodified
 Bitcoin Core client in any way (including using the same data directory).
-Modifications are based on version 0.15.1.
+Modifications are based on version 0.16
+
+Download code with git as:
+
+git clone --single-branch -b 0.16 https://github.com/dkondor/bitcoin.git
 
 For original build instructions, see https://github.com/bitcoin/bitcoin
 
