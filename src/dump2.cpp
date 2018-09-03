@@ -94,91 +94,28 @@ static FILE* open_in_zip(const char* fn) {
 	return ret;
 }
 
-
-/* address stored as a fixed-length string for easier storage in files */
-template<unsigned int len = 63>
-struct addr_str {
-	char addr[len+1]; /* note: need to specify alignment? */
-	addr_str() { addr[0] = 0; }
-	constexpr unsigned int max_len() { return len; }
-	bool set_str(const std::string& s) {
-		if(s.length() > len) return false;
-		unsigned int i;
-		for(i=0;i<len;i++) {
-			if(s[i] == 0) break;
-			addr[i] = s[i];
-		}
-		addr[i] = 0;
-		if(s[i] != 0) return false;
-		return true;
-	}
-	bool operator ==(const addr_str& a2) const {
-		return strncmp(addr,a2.addr,len);
-	}
+/* alternative way to store addresses in a hashtable: store the original boost::variant values
+ * hash function -- use the lowest 64 bits for all, do not care about type
+ * (hash collisions can be resolved by the equal function) */
+class addr_v_hash : public boost::static_visitor<size_t> {
+public:
+	size_t operator()(const CKeyID& id) const { return id.GetCheapHash(); }
+    size_t operator()(const CScriptID& id) const { return id.GetCheapHash(); }
+    size_t operator()(const WitnessV0KeyHash& id) const { return id.GetCheapHash(); }
+    size_t operator()(const WitnessV0ScriptHash& id) const { return id.GetCheapHash(); }
+    size_t operator()(const WitnessUnknown& id) const { return ReadLE64(id.program); }
+    size_t operator()(const CNoDestination& no) const { return 0UL; }
+    size_t operator()(const CTxDestination& id) const { return boost::apply_visitor(*this,id); }
 };
-
-
-/*-----------------------------------------------------------------------------
- * Murmurhash for strings since C++ hash functions only support std::string
- * slightly modified from
- * https://github.com/aappleby/smhasher/blob/master/src/MurmurHash2.cpp
- * MurmurHash2 was written by Austin Appleby, and is placed in the public
- * domain. The author hereby disclaims copyright to this source code.
-*/
-template<unsigned int len1>
-uint64_t MurmurHash64A ( const char * key, uint64_t seed )
-{
-	size_t len = len1;
-	const uint64_t m = 0xc6a4a7935bd1e995UL;
-	const int r = 47;
-	uint64_t h = seed ^ (len * m);
-	while(len >= 8)
-	{
-		/* note: use memcpy() to avoid UB from strict aliasing violation
-		 * should be compiled to a single load instruction */
-		uint64_t k;
-		memcpy(&k,key,8);
-		if(k == 0) { len = 0; break; }
-		key += 8;
-		len -= 8;
-		k *= m;
-		k ^= k >> r;
-		k *= m;
-		h ^= k;
-		h *= m; 
-	}
-	
-	switch(len)
-	{
-		case 7: h ^= uint64_t(key[6]) << 48;
-		case 6: h ^= uint64_t(key[5]) << 40;
-		case 5: h ^= uint64_t(key[4]) << 32;
-		case 4: h ^= uint64_t(key[3]) << 24;
-		case 3: h ^= uint64_t(key[2]) << 16;
-		case 2: h ^= uint64_t(key[1]) << 8;
-		case 1: h ^= uint64_t(key[0]); h *= m;
-	};
-	
-	h ^= h >> r;
-	h *= m;
-	h ^= h >> r;
-	return h;
-}
-
-template<unsigned int len>
-struct addr_str_hash {
-	uint64_t seed;
-	addr_str_hash():seed(0xe6573480bcc4fceaUL) {  }
-	explicit addr_str_hash(uint64_t seed_):seed(seed_) {  }
-	size_t operator () (const addr_str<len>& s) const {
-		return MurmurHash64A<len>(s.addr,seed);
-	}
+/* compare for equality -- only objects of the same type will compare equal, taken from the boost::variant tutorial */
+class addr_v_eq : public boost::static_visitor<bool> {
+public:
+	template <typename T, typename U>
+    bool operator()( const T &, const U & ) const { return false; }
+    template <typename T> /* all potential types have equality defined */
+    bool operator()( const T & lhs, const T & rhs ) const { return lhs == rhs; }
 };
-
-template<unsigned int len = 63>
-using addr_str_map = std::unordered_map<addr_str<len>,int64_t,addr_str_hash<len>>;
-
-const static unsigned int addr_max_len = 63;
+typedef std::unordered_map<CTxDestination,int64_t,addr_v_hash,addr_v_eq> addr_v_map;
 
 int dumpblocks()
 {
@@ -205,7 +142,7 @@ int dumpblocks()
 	int64_t txs = 0; // counter for transactions processed (used as txIDs as well)
 
 	txoutmap outmap1;
-	addr_str_map<addr_max_len> addr_map;
+	addr_v_map addr_map;
 	
 	int64_t b = 0; // current block index
 	int64_t naddr = 0; // number of addresses encountered in total
@@ -311,25 +248,22 @@ int dumpblocks()
 				int64_t addrid;
 				const char* addrstr;
 				size_t addrlen;
-				addr_str<addr_max_len> addrstr2;
 				if(! (rt.read_int64(addrid) && rt.read_string(&addrstr,&addrlen) ) ) break;
-				if(addrlen > (size_t)addr_max_len) {
-					fprintf(stderr,"dumpblocks(): Error: address too long in input file %s, line %lu: %.*s!\n",addr_load_fn,rt.get_line(),(int)addrlen,addrstr);
-					err = 1; break;
-				}
 				if(addrid != naddr) {
 					fprintf(stderr,"dumpblocks(): Address IDs in input file %s not sorted on line %lu!\n",addr_load_fn,rt.get_line());
 					err = 1; break;
 				}
-				strncpy(addrstr2.addr,addrstr,addrlen);
-				addrstr2.addr[addrlen] = 0;
-				if(addr_map.insert(std::make_pair(addrstr2,naddr)).second == false) {
-					fprintf(stderr,"dumpblocks(): Address appears multiple times in input file %s (line %lu): %.*s!\n",addr_load_fn,rt.get_line(),(int)addrlen,addrstr);
-					err = 1; break;
+				
+				CTxDestination addr2 = DecodeDestination(std::string(addrstr,addrlen));
+				if(boost::get<CNoDestination>(&addr2)) {
+					fprintf(stderr,"dumpblocks(): invalid address in input file %s line %lu!\n",addr_load_fn,rt.get_line());
+					err = 1;
+					break;
 				}
+				addr_map.insert(std::make_pair(addr2,naddr));
 				naddr++;
 			}
-			if(rt.get_last_error() != T_EOF) {
+			if(!err) if(rt.get_last_error() != T_EOF) {
 				fprintf(stderr,"dumpblocks(): ");
 				rt.write_error(stderr);
 				err = 1;
@@ -409,8 +343,6 @@ int dumpblocks()
 		
 		// process all transactions in this block
 		for(const auto& ptx : block.vtx) {
-		//~ unsigned int i1=0;i1<block.vtx.size();i1++) {
-			//~ const CTransaction& tx = *(block.vtx[i1]);
 			const CTransaction& tx = *ptx;
 			std::string txh = tx.GetHash().GetHex();
 
@@ -464,18 +396,13 @@ int dumpblocks()
 					// write these to a separate file
 					if(stmultiple) {
 						for(const auto& it : addresses) {
-							addr_str<addr_max_len> s;
-							if(!s.set_str(EncodeDestination(it))) {
-								fprintf(stderr,"dumpblock(): address too long: %s!\n",EncodeDestination(it).c_str());
-								err = -1; break;
-							}
-							
 							int64_t addrid;
-							auto it2 = addr_map.find(s);
+							auto it2 = addr_map.find(it);
 							if(it2 == addr_map.end()) {
-								addr_map.insert(std::make_pair(s,naddr));
+								addr_map.insert(std::make_pair(it,naddr));
 								addrid = naddr;
-								err = fprintf(saddresses,"%ld\t%s\n",naddr,s.addr); if(err < 0) break;
+								std::string addr_str = EncodeDestination(it);
+								err = fprintf(saddresses,"%ld\t%s\n",naddr,addr_str.c_str()); if(err < 0) break;
 								naddr++;
 							}
 							else addrid = it2->second;
@@ -494,16 +421,12 @@ int dumpblocks()
 				}
 				else {
 					// write out only the first output address as the addressee in the main output file
-					addr_str<addr_max_len> addr;
-					if(!addr.set_str(EncodeDestination(addresses[0]))) {
-						fprintf(stderr,"dumpblock(): address too long: %s!\n",EncodeDestination(addresses[0]).c_str());
-						break;
-					}
-					auto it1 = addr_map.find(addr);
+					auto it1 = addr_map.find(addresses[0]);
 					if(it1 == addr_map.end()) {
-						addr_map.insert(std::make_pair(addr,naddr));
+						addr_map.insert(std::make_pair(addresses[0],naddr));
 						addrid1 = naddr;
-						err = fprintf(saddresses,"%ld\t%s\n",naddr,addr.addr); if(err < 0) break;
+						std::string addr_str = EncodeDestination(addresses[0]);
+						err = fprintf(saddresses,"%ld\t%s\n",naddr,addr_str.c_str()); if(err < 0) break;
 						naddr++;
 					}
 					else addrid1 = it1->second;
