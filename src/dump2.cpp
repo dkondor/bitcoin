@@ -12,17 +12,17 @@
  */
 
 //~ #include "bitcoinrpc.h"
-#include "net.h"
-#include "init.h"
-#include "util.h"
-#include "chain.h"
-#include "base58.h"
-#include "validation.h"
-#include "chainparams.h"
-#include "script/standard.h"
-#include "utilstrencodings.h"
+#include <net.h>
+#include <shutdown.h>
+#include <util/system.h>
+#include <chain.h>
+#include <key_io.h>
+#include <validation.h>
+#include <chainparams.h>
+#include <script/standard.h>
+#include <util/strencodings.h>
 
-#include "read_table.h"
+#include <read_table.h>
 
 #include <string>
 #include <string.h>
@@ -99,8 +99,12 @@ static FILE* open_in_zip(const char* fn) {
  * (hash collisions can be resolved by the equal function) */
 class addr_v_hash : public boost::static_visitor<size_t> {
 public:
+	/* these two are deprecated (replaced by PKHash and ScriptHash)? 
 	size_t operator()(const CKeyID& id) const { return id.GetCheapHash(); }
-    size_t operator()(const CScriptID& id) const { return id.GetCheapHash(); }
+	size_t operator()(const CScriptID& id) const { return id.GetCheapHash(); } */
+	
+    size_t operator()(const PKHash& id) const { return id.GetCheapHash(); }
+    size_t operator()(const ScriptHash& id) const { return id.GetCheapHash(); }
     size_t operator()(const WitnessV0KeyHash& id) const { return id.GetCheapHash(); }
     size_t operator()(const WitnessV0ScriptHash& id) const { return id.GetCheapHash(); }
     size_t operator()(const WitnessUnknown& id) const { return ReadLE64(id.program); }
@@ -130,7 +134,7 @@ int dumpblocks()
 	char* faddresses = 0; FILE* saddresses = 0; // output file for address ID mapping to address strings (IDs are used in all other outputs)
 	char* funspent = 0; FILE* sunspent = 0; // output file with unspent transaction outputs (can be read later)
 	char* outdir = 0; // output directory, if given, just use default filenames
-	int64_t bmax = chainActive.Height() + 1; // last block to write out
+	int64_t bmax = ::ChainActive().Height() + 1; // last block to write out
 	int64_t bmin = 0; // first block to write out
 	int64_t txmin = 0; // first transaction ID to use
 	int64_t T1 = 10000; // output progress after this many blocks each
@@ -319,9 +323,9 @@ int dumpblocks()
 	}
 	
 	for(;b<bmax;b++) {
-		if(b > chainActive.Height()) break; // already at the end of blockchain
+		if(b > ::ChainActive().Height()) break; // already at the end of blockchain
 		CBlock block;
-		CBlockIndex* pblockindex = chainActive[b];
+		CBlockIndex* pblockindex = ::ChainActive()[b];
 		if(!pblockindex) {
 			fprintf(stderr,"Error finding block %ld!\n",b);
 			goto dumpblocks_end; 

@@ -550,6 +550,29 @@ void SetupServerArgs()
 #else
     hidden_args.emplace_back("-daemon");
 #endif
+	
+	// dump mode arguments
+	gArgs.AddArg("-DUMP", "Dump blockchain data in TSV files and exit", ArgsManager::ALLOW_BOOL, OptionsCategory::DEBUG_TEST);
+	gArgs.AddArg("-DUMP_outdir=<dir>", "Output directory for blockchain dump mode", ArgsManager::ALLOW_STRING, OptionsCategory::DEBUG_TEST);
+	gArgs.AddArg("-DUMP_zip", "Compress output with gzip in dump mode", ArgsManager::ALLOW_BOOL, OptionsCategory::DEBUG_TEST);
+	// TOOD: write help text for these as well!
+	hidden_args.emplace_back("-DUMP_bmin");
+	hidden_args.emplace_back("-DUMP_bmax");
+	hidden_args.emplace_back("-DUMP_load_unspent");
+	hidden_args.emplace_back("-DUMP_load_addr");
+	hidden_args.emplace_back("-DUMP_load_zip");
+	hidden_args.emplace_back("-DUMP_txmin");
+	// individual filenames for output -- these are always hidden
+	hidden_args.emplace_back("-DUMP_txout");
+	hidden_args.emplace_back("-DUMP_txin");
+	hidden_args.emplace_back("-DUMP_tx");
+	hidden_args.emplace_back("-DUMP_txh");
+	hidden_args.emplace_back("-DUMP_bh");
+	hidden_args.emplace_back("-DUMP_missing");
+	hidden_args.emplace_back("-DUMP_multiple");
+	hidden_args.emplace_back("-DUMP_nonstandard");
+	hidden_args.emplace_back("-DUMP_addresses");
+	hidden_args.emplace_back("-DUMP_unspent");
 
     // Add the hidden options
     gArgs.AddHiddenArgs(hidden_args);

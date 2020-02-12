@@ -513,9 +513,11 @@ std::string ArgsManager::GetArg(const std::string& strArg, const std::string& st
 }
 
 char* ArgsManager::GetArg(const std::string& strArg) const {
-	LOCK(cs_args);
-	auto it = mapArgs.find(strArg);
-	if(it != mapArgs.end()) return strdup(it->second.c_str());
+	//~ LOCK(cs_args);
+	//~ auto it = mapArgs.find(strArg);
+	//~ if(it != mapArgs.end()) return strdup(it->second.c_str());
+	std::pair<bool,std::string> found_res = ArgsManagerHelper::GetArg(*this, strArg);
+	if(found_res.first) return strdup(found_res.second.c_str());
 	return 0;
 }
 
