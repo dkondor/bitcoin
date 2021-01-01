@@ -471,7 +471,7 @@ static int read_table_uint32_limits(read_table* r, uint32_t* i, uint32_t min, ui
 	}
 	unsigned long res = strtoul(r->buf + r->pos, &c2, r->base);
 	/* check that result fits in 32-bit integer -- long might be 64-bit */
-	if(res > (unsigned long)max || res < (unsigned int)min) {
+	if(res > (unsigned long)max || res < (unsigned long)min) {
 		r->last_error = T_OVERFLOW;
 		if(res > (unsigned long)max) *i = max;
 		if(res < (unsigned long)min) *i = min;
@@ -515,10 +515,10 @@ static int read_table_uint64_limits(read_table* r, uint64_t* i, uint64_t min, ui
 	}
 	else {
 		res2 = strtoull(r->buf + r->pos, &c2, r->base);
-		if(res2 > (unsigned long long)max || res < (unsigned long long)min) {
+		if(res2 > (unsigned long long)max || res2 < (unsigned long long)min) {
 			r->last_error = T_OVERFLOW;
-			if(res > (unsigned long long)max) *i = max;
-			if(res < (unsigned long long)min) *i = min;
+			if(res2 > (unsigned long long)max) *i = max;
+			if(res2 < (unsigned long long)min) *i = min;
 			return 1;
 		}
 		*i = res2; /* store potential result */
